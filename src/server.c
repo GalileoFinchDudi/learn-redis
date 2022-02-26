@@ -4043,6 +4043,7 @@ int main(int argc, char **argv) {
     getRandomHexChars(hashseed,sizeof(hashseed));
     dictSetHashFunctionSeed((uint8_t*)hashseed);
     server.sentinel_mode = checkForSentinelMode(argc,argv);
+    // 初始化服务配置
     initServerConfig();
     moduleInitModulesSystem();
 
@@ -4056,6 +4057,9 @@ int main(int argc, char **argv) {
     /* We need to init sentinel right now as parsing the configuration file
      * in sentinel mode will have the effect of populating the sentinel
      * data structures with master nodes to monitor. */
+    /*
+     * 判断是否是哨兵模式，是的话加载哨兵配置
+     */
     if (server.sentinel_mode) {
         initSentinelConfig();
         initSentinel();
@@ -4151,9 +4155,11 @@ int main(int argc, char **argv) {
     }
 
     server.supervised = redisIsSupervised(server.supervised_mode);
+    // 后端自启动 daemonize
     int background = server.daemonize && !server.supervised;
     if (background) daemonize();
 
+    // 初始化 redis服务
     initServer();
     if (background || server.pidfile) createPidFile();
     redisSetProcTitle(argv[0]);
@@ -4189,6 +4195,7 @@ int main(int argc, char **argv) {
         serverLog(LL_WARNING,"WARNING: You specified a maxmemory value that is less than 1MB (current value is %llu bytes). Are you sure this is what you really want?", server.maxmemory);
     }
 
+    // 设置监听事件
     aeSetBeforeSleepProc(server.el,beforeSleep);
     aeSetAfterSleepProc(server.el,afterSleep);
     aeMain(server.el);

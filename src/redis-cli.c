@@ -1544,6 +1544,7 @@ static char **convertToSds(int count, char** args) {
 static int issueCommandRepeat(int argc, char **argv, long repeat) {
     while (1) {
         config.cluster_reissue_command = 0;
+        // 调用cliSendCommand将命令发送到服务端
         if (cliSendCommand(argc,argv,repeat) != REDIS_OK) {
             cliConnect(CC_FORCE);
 
@@ -1639,10 +1640,12 @@ static void repl(void) {
 
     /* Initialize the help and, if possible, use the COMMAND command in order
      * to retrieve missing entries. */
+    // 初始化帮助信息
     cliInitHelp();
     cliIntegrateHelp();
 
     config.interactive = 1;
+    // 设置linenoise配置
     linenoiseSetMultiLine(1);
     linenoiseSetCompletionCallback(completionCallback);
     linenoiseSetHintsCallback(hintsCallback);
@@ -1659,13 +1662,16 @@ static void repl(void) {
         cliLoadPreferences();
     }
 
+    // 刷新输入框
     cliRefreshPrompt();
+    // 通过linenoise持续获取输入框内容
     while((line = linenoise(context ? config.prompt : "not connected> ")) != NULL) {
         if (line[0] != '\0') {
             long repeat = 1;
             int skipargs = 0;
             char *endptr = NULL;
 
+            // 讲参数值劈开成数组
             argv = cliSplitArgs(line,&argc);
 
             /* check if we have a repeat command option and
@@ -1697,6 +1703,15 @@ static void repl(void) {
                 linenoiseFree(line);
                 continue;
             } else if (argc > 0) {
+                /*
+                 * 对比参数值处理对应逻辑
+                 *
+                 * quit exit
+                 * restart
+                 * :
+                 * connect
+                 * clear
+                 */
                 if (strcasecmp(argv[0],"quit") == 0 ||
                     strcasecmp(argv[0],"exit") == 0)
                 {
@@ -1724,7 +1739,7 @@ static void repl(void) {
                     linenoiseClearScreen();
                 } else {
                     long long start_time = mstime(), elapsed;
-
+                    // 执行命令
                     issueCommandRepeat(argc-skipargs, argv+skipargs, repeat);
 
                     /* If our debugging session ended, show the EVAL final
@@ -6591,6 +6606,7 @@ static void intrinsicLatencyMode(void) {
 int main(int argc, char **argv) {
     int firstarg;
 
+    // 初始化参数配置
     config.hostip = sdsnew("127.0.0.1");
     config.hostport = 6379;
     config.hostsocket = NULL;
@@ -6653,6 +6669,7 @@ int main(int argc, char **argv) {
         config.output = OUTPUT_STANDARD;
     config.mb_delim = sdsnew("\n");
 
+    // 初始化用户接口参数
     firstarg = parseOptions(argc,argv);
     argc -= firstarg;
     argv += firstarg;
@@ -6667,6 +6684,22 @@ int main(int argc, char **argv) {
         }
         clusterManagerMode(proc);
     }
+
+    /*
+     * 启动各种各样的模式
+     * latency mode
+     * latency dist mode
+     * slave mode
+     * getrdb mode
+     * pipe mode
+     * big keys
+     * hot keys
+     * stat mode
+     * scan mode
+     * lru test mode
+     * intrinsic latency mode
+     * repl mode 默认的交互模式！！！
+     */
 
     /* Latency mode */
     if (config.latency_mode) {
@@ -6733,6 +6766,7 @@ int main(int argc, char **argv) {
     if (config.intrinsic_latency_mode) intrinsicLatencyMode();
 
     /* Start interactive mode when no command is provided */
+    // 当没有任何命令进来，启动交互模式
     if (argc == 0 && !config.eval) {
         /* Ignore SIGPIPE in interactive mode to force a reconnect */
         signal(SIGPIPE, SIG_IGN);
